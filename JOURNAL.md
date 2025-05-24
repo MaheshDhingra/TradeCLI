@@ -16,3 +16,5 @@ Yea, finally got an idea which is not pulled in the official repo for now!!
 
 [Day 3, Jarvis]
 -- integrations of jarvis (took whole day in building it)
+-- nvm removed it
+-- thinking of adding real trading sounds and a rotating donut or earth idk why
