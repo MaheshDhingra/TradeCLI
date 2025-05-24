@@ -1,2 +1,0 @@
-# TradeCLI
-TradeCLI for TerminalCraft
