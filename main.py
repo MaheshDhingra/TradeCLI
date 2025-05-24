@@ -1,6 +1,5 @@
 import math
 import os
-import random
 import matplotlib.pyplot as plt
 from typing import Dict, List, Set
 

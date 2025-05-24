@@ -1,3 +1,4 @@
-rich
-textual
-python-dateutil
+math
+os
+matplotlib
+typing
