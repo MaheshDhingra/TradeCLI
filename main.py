@@ -248,7 +248,6 @@ def process_command(command: str, args: List[str], positions: Dict[str, Dict]) -
   else:
     print("Unknown command. Type 'help' for available commands.")
 
-  random_notification()
   return True
 
 def main() -> None:
