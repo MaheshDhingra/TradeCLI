@@ -11,7 +11,7 @@ Welcome to **TradeCLI**, your charming command-line companion for trading. Wheth
 
 ---
 
-## ✨ What is TradeCLI?
+🔧 Note: This is an early alpha release intended to showcase the base command structure and interaction flow. Further enhancements, error handling, and integrations are coming soon!
 
 **TradeCLI** is a lightweight, intuitive terminal-based trading assistant built for speed and ease of use. It’s perfect for traders who prefer the command line or want to automate basic trading operations without leaving the terminal.
 
