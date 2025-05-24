@@ -1,5 +1,3 @@
-# 🤙 TerminalCraft: TradeCLI
-
 <h1 align="center">🤙 TerminalCraft: TradeCLI</h1>
 
 <p align="center">
