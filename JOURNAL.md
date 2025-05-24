@@ -1,4 +1,15 @@
+[Day 1, Morning]
 Yea, finally got an idea which is not pulled in the official repo for now!!
 
 -- created the github repo
 -- synced local folder with github repo
+
+[Day 1, Midnight]
+-- finished the basic structure
+-- got disappointed with the project size for now
+-- buy, sell and some basic things works
+
+[Day 2, Evening]
+-- dashboard to monitor profit loss and etc
+-- price not fluctuating randomly but rather using a algorithm
+-- price plotting on terminal
