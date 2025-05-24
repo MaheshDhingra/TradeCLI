@@ -13,3 +13,6 @@ Yea, finally got an idea which is not pulled in the official repo for now!!
 -- dashboard to monitor profit loss and etc
 -- price not fluctuating randomly but rather using a algorithm
 -- price plotting on terminal
+
+[Day 3, Jarvis]
+-- integrations of jarvis (took whole day in building it)
