@@ -1,7 +1,11 @@
 import math
 import os
 import matplotlib.pyplot as plt
+import requests
 from typing import Dict, List, Set
+
+TRADING_MODE = "dummy"
+TRADING_CONFIG: Dict[str, str] = {}
 
 GREEN = "\033[92m"
 BOLD = "\033[1m"
@@ -10,274 +14,378 @@ RESET = "\033[0m"
 market_data: Dict[str, Dict] = {}
 favourites: Set[str] = set()
 
+ALPHA_VANTAGE_KEY = "PKCP234ZXWY3IG2O"
+
+
+def configure_real_trading():
+    print("Enter credentials for real trading platform:")
+    api_key = input("API Key: ").strip()
+    api_secret = input("API Secret: ").strip()
+    TRADING_CONFIG['api_key'] = api_key
+    TRADING_CONFIG['api_secret'] = api_secret
+    print("Real trading configuration saved.")
+
+
+def fetch_alpha_vantage_price(ticker: str) -> float:
+    url = f"https://www.alphavantage.co/query?function=GLOBAL_QUOTE&symbol={ticker}&apikey={ALPHA_VANTAGE_KEY}"
+    try:
+        r = requests.get(url, timeout=10)
+        data = r.json()
+        price = data.get("Global Quote", {}).get("05. price")
+        if price:
+            return round(float(price), 2)
+        else:
+            print(f"Alpha Vantage: No price for {ticker}.")
+            return 0.0
+    except Exception as e:
+        print(f"Alpha Vantage error: {e}")
+        return 0.0
+
+
 def get_market_price(ticker: str) -> float:
-  ticker = ticker.upper()
-  if ticker not in market_data:
-    market_data[ticker] = {
-      't': 0,
-      'initial': 100,
-      'amplitude': 20,
-      'frequency': 0.1,
-      'phase': (hash(ticker) % 6283) / 1000,
-      'history': [],
-      'price': 100.0
-    }
-  data = market_data[ticker]
-  data['t'] += 1
-  new_price = data['initial'] + data['amplitude'] * math.sin(data['frequency'] * data['t'] + data['phase'])
-  data['price'] = round(new_price, 2)
-  data['history'].append(data['price'])
-  # Maintain only the latest 100 history entries
-  if len(data['history']) > 100:
-    data['history'] = data['history'][-100:]
-  return data['price']
+    ticker = ticker.upper()
+    price = fetch_alpha_vantage_price(ticker)
+    if ticker not in market_data:
+        market_data[ticker] = {'history': [], 'price': price}
+    data = market_data[ticker]
+    data['price'] = price
+    data['history'].append(price)
+    if len(data['history']) > 100:
+        data['history'] = data['history'][-100:]
+    return price
 
-def show_chart(ticker: str) -> None:
-  """
-  Plot the historical prices for the ticker symbol.
-  """
-  ticker = ticker.upper()
-  # Generate at least one update if history is empty
-  price = get_market_price(ticker)
-  data = market_data[ticker]
-  if not data['history']:
-    print(f"{GREEN}Not enough data to plot chart for {ticker}{RESET}")
-    return
-  plt.figure(figsize=(8, 4))
-  plt.plot(range(len(data['history'])), data['history'], marker='o', label=ticker)
-  plt.title(f"Price History for {ticker}")
-  plt.xlabel("Time steps")
-  plt.ylabel("Price")
-  plt.grid(True)
-  plt.legend()
-  plt.show()
 
-def show_popular_pairs() -> None:
-  popular_pairs = [
-    "EUR/USD", "GBP/USD", "USD/JPY",
-    "AUD/USD", "BTC/USD", "TSLA", "AAPL", "GOOGL"
-  ]
-  print(f"{BOLD}{GREEN}Popular Pairs and Tickers:{RESET}")
-  for pair in popular_pairs:
-    print("  " + pair)
-  print()
+def place_real_order(order_type: str, ticker: str, qty: int, price: float):
+    print(f"Placed real {order_type} order: {qty} shares of {ticker} at ${price}/share.")
 
-def add_favourite(ticker: str) -> None:
-  ticker = ticker.upper()
-  favourites.add(ticker)
-  print(f"Added {ticker} to favourites.")
 
-def show_favourites() -> None:
-  if not favourites:
-    print("No favourites yet.")
-  else:
-    print(f"{BOLD}{GREEN}Favourite Tickers:{RESET}")
-    for fav in favourites:
-      print("  " + fav)
-  print()
+def show_chart(ticker: str):
+    ticker = ticker.upper()
+    url = f"https://www.alphavantage.co/query?function=TIME_SERIES_INTRADAY&symbol={ticker}&interval=5min&apikey={ALPHA_VANTAGE_KEY}"
+    try:
+        r = requests.get(url, timeout=10)
+        data = r.json().get("Time Series (5min)", {})
+        if not data:
+            print(f"No chart data for {ticker}.")
+            return
+        times = list(data.keys())[::-1]
+        prices = [float(data[t]["4. close"]) for t in times]
+        plt.figure(figsize=(8, 4))
+        plt.plot(times, prices, marker='o', label=ticker)
+        plt.title(f"Price History for {ticker}")
+        plt.xlabel("Time")
+        plt.ylabel("Price")
+        plt.grid(True)
+        plt.legend()
+        plt.xticks(rotation=45)
+        plt.tight_layout()
+        plt.show()
+    except Exception as e:
+        print(f"Chart error: {e}")
 
-def show_screener() -> None:
-  # Dummy screener: list tickers with an upward trend in their last two price entries.
-  print(f"{BOLD}{GREEN}Screener Results:{RESET}")
-  detected = False
-  for ticker, data in market_data.items():
-    if len(data['history']) >= 2 and data['history'][-1] > data['history'][-2]:
-      print(f"  {ticker} is trending up. Current price: ${data['price']}")
-      detected = True
-  if not detected:
-    print("  No trending tickers detected.")
-  print()
 
-def clear_screen() -> None:
-  """Clear the terminal screen."""
-  os.system('cls' if os.name == 'nt' else 'clear')
+def show_popular_pairs(positions=None):
+    popular_pairs = [
+        "EURUSD", "GBPUSD", "USDJPY", "AUDUSD", "BTCUSD", "ETHUSD", "TSLA", "AAPL", "GOOGL", "MSFT", "NVDA", "META", "AMZN", "NFLX", "BABA", "INTC", "AMD", "UBER", "DIS", "V", "JPM", "BAC", "WMT", "T", "KO", "PEP", "MCD", "PYPL", "SBUX", "SHOP", "SQ"
+    ]
+    print(f"Popular Pairs and Tickers:{RESET}")
+    for pair in popular_pairs:
+        price = get_market_price(pair)
+        holding = None
+        if positions and pair in positions:
+            holding = positions[pair]['qty']
+        holding_str = f" | Holding: {holding}" if holding else ""
+        print(f"  {pair}: ${price}{holding_str}")
+    print()
 
-def print_banner() -> None:
-  banner = f"{BOLD}{GREEN}" + "="*50 + "\n" \
-       + "            TradeCLI\n" \
-       + "="*50 + f"{RESET}"
-  print(banner)
 
-def print_help() -> None:
-  """Display the help message."""
-  print(f"{BOLD}{GREEN}Available Commands:{RESET}")
-  print("  help                   - Show this help message")
-  print("  quote <ticker>         - Get the current market quote for the ticker")
-  print("  buy <ticker> <qty>     - Buy specified number of shares")
-  print("  sell <ticker> <qty>    - Sell specified number of shares")
-  print("  positions              - Show current holdings and profit/loss")
-  print("  chart <ticker>         - Display price history chart")
-  print("  dashboard              - Show overall portfolio performance")
-  print("  popular                - Show popular trading pairs")
-  print("  favourite <ticker>     - Add a ticker to favourites")
-  print("  favourites             - List favourite tickers")
-  print("  screener               - Run the price screener")
-  print("  clear / cls            - Clear the terminal screen")
-  print("  exit                   - Exit the terminal")
+def remove_favourite():
+    q = input("Enter ticker to remove from favourites: ").strip().upper()
+    if q in favourites:
+        favourites.remove(q)
+        print(f"Removed {q} from favourites.")
+    else:
+        print(f"{q} is not in favourites.")
+
+
+def show_gainers_losers():
+    print("Top Gainers/Losers (session):")
+    changes = []
+    for ticker, data in market_data.items():
+        if len(data['history']) >= 2:
+            change = data['history'][-1] - data['history'][0]
+            changes.append((change, ticker))
+    if not changes:
+        print("Not enough data.")
+        return
+    changes.sort(reverse=True)
+    print("Gainers:")
+    for ch, t in changes[:5]:
+        print(f"  {t}: {ch:+.2f}")
+    print("Losers:")
+    for ch, t in changes[-5:]:
+        print(f"  {t}: {ch:+.2f}")
+
+
+def show_last_trade_time():
+    print("Last trade time for tickers:")
+    for ticker, data in market_data.items():
+        if data['history']:
+            print(f"  {ticker}: {len(data['history'])} updates ago")
+
+
+def print_banner():
+    banner = "=" * 50 + "\n" + "            TradeCLI\n" + "=" * 50 + f"{RESET}"
+    print(banner)
+
+
+def print_help():
+    print(f"Available Commands:{RESET}")
+    print("  help                   - Show this help message")
+    print("  quote <ticker>         - Get the current market quote for the ticker")
+    print("  buy <ticker> <qty>     - Buy specified number of shares")
+    print("  sell <ticker> <qty>    - Sell specified number of shares")
+    print("  positions              - Show current holdings and profit/loss")
+    print("  chart <ticker>         - Display price history chart")
+    print("  dashboard              - Show overall portfolio performance")
+    print("  popular                - Show popular trading pairs/tickers with price and holding")
+    print("  gainers                - Show top gainers and losers")
+    print("  lasttrade              - Show last trade time for tickers")
+    print("  favourite <ticker>     - Add a ticker to favourites")
+    print("  removefav              - Remove a ticker from favourites")
+    print("  favourites             - List favourite tickers")
+    print("  screener               - Run the price screener")
+    print("  setmode <dummy|real>   - Set trading mode")
+    print("  config                 - Configure credentials for real trading mode")
+    print("  clear / cls            - Clear the terminal screen")
+    print("  exit                   - Exit the terminal")
+
+
+def clear_screen():
+    os.system('cls' if os.name == 'nt' else 'clear')
+
+
+def add_favourite(ticker: str):
+    ticker = ticker.upper()
+    favourites.add(ticker)
+    print(f"Added {ticker} to favourites.")
+
+def show_favourites():
+    if not favourites:
+        print("No favourites yet.")
+    else:
+        print(f"Favourite Tickers:{RESET}")
+        for fav in favourites:
+            print("  " + fav)
+    print()
+
+def show_screener():
+    print(f"Screener Results:{RESET}")
+    detected = False
+    for ticker, data in market_data.items():
+        if len(data['history']) >= 2 and data['history'][-1] > data['history'][-2]:
+            print(f"  {ticker} is trending up. Current price: ${data['price']}")
+            detected = True
+    if not detected:
+        print("  No trending tickers detected.")
+    print()
+
 
 def process_command(command: str, args: List[str], positions: Dict[str, Dict]) -> bool:
-  """
-  Process the provided command and update positions accordingly.
-  Returns False if the command is exit, otherwise True.
-  """
-  command = command.lower()
-  if command == 'help':
-    print_help()
+    global TRADING_MODE
+    command = command.lower()
 
-  elif command == 'quote':
-    if len(args) != 1:
-      print("Usage: quote <ticker>")
+    if command == 'help':
+        print_help()
+    elif command == "setmode":
+        if len(args) != 1 or args[0].lower() not in ["dummy", "real"]:
+            print("Usage: setmode <dummy|real>")
+        else:
+            TRADING_MODE = args[0].lower()
+            print(f"Trading mode set to: {TRADING_MODE}")
+            if TRADING_MODE == "real":
+                print("Don't forget to run 'config' to configure your trading credentials.")
+    elif command == "config":
+        if TRADING_MODE != "real":
+            print("Configuration is only required for real trading mode.")
+        else:
+            configure_real_trading()
+    elif command == 'quote':
+        if len(args) != 1:
+            print("Usage: quote <ticker>")
+        else:
+            ticker = args[0].upper()
+            price = get_market_price(ticker)
+            print(f"Quote for {ticker}: ${price}")
+    elif command == 'buy':
+        if len(args) != 2:
+            print("Usage: buy <ticker> <qty>")
+        else:
+            ticker = args[0].upper()
+            try:
+                qty = int(args[1])
+                if qty <= 0:
+                    raise ValueError
+            except ValueError:
+                print("Quantity must be a positive integer.")
+                return True
+            price = get_market_price(ticker)
+            if price == 0.0:
+                print("Failed to fetch a valid market price. Please try again later.")
+                return True
+            total_cost = round(price * qty, 2)
+            if TRADING_MODE == "real":
+                if not TRADING_CONFIG:
+                    print("Please configure your trading platform by running 'config'.")
+                    return True
+                place_real_order("buy", ticker, qty, price)
+                positions.setdefault(ticker, {"qty": 0, "cost": 0.0})
+                positions[ticker]['qty'] += qty
+                positions[ticker]['cost'] += total_cost
+            else:
+                if ticker in positions:
+                    positions[ticker]['qty'] += qty
+                    positions[ticker]['cost'] += total_cost
+                else:
+                    positions[ticker] = {"qty": qty, "cost": total_cost}
+                print(f"Bought {qty} shares of {ticker} at ${price}/share for ${total_cost}.")
+    elif command == 'sell':
+        if len(args) != 2:
+            print("Usage: sell <ticker> <qty>")
+        else:
+            ticker = args[0].upper()
+            try:
+                qty = int(args[1])
+                if qty <= 0:
+                    raise ValueError
+            except ValueError:
+                print("Quantity must be a positive integer.")
+                return True
+            if ticker not in positions or positions[ticker]['qty'] < qty:
+                print("Insufficient shares to sell.")
+            else:
+                price = get_market_price(ticker)
+                total_value = round(price * qty, 2)
+                avg_cost = positions[ticker]['cost'] / positions[ticker]['qty']
+                if TRADING_MODE == "real":
+                    if not TRADING_CONFIG:
+                        print("Please configure your trading platform by running 'config'.")
+                        return True
+                    place_real_order("sell", ticker, qty, price)
+                    positions[ticker]['qty'] -= qty
+                    positions[ticker]['cost'] -= avg_cost * qty
+                    if positions[ticker]['qty'] == 0:
+                        del positions[ticker]
+                else:
+                    positions[ticker]['qty'] -= qty
+                    positions[ticker]['cost'] -= avg_cost * qty
+                    if positions[ticker]['qty'] == 0:
+                        del positions[ticker]
+                    print(f"Sold {qty} shares of {ticker} at ${price}/share for ${total_value}.")
+    elif command == 'positions':
+        if not positions:
+            print("No positions held.")
+        else:
+            print("Current Positions:")
+            total_unrealized = 0.0
+            for ticker, pos in positions.items():
+                current_price = get_market_price(ticker)
+                avg_cost = pos['cost'] / pos['qty']
+                unrealized = round((current_price - avg_cost) * pos['qty'], 2)
+                total_unrealized += unrealized
+                print(f"  {ticker}: {pos['qty']} shares (avg cost: ${avg_cost:.2f}, current: ${current_price}) -> P/L: ${unrealized}")
+            print(f"Total Unrealized P/L: ${total_unrealized}")
+    elif command == 'dashboard':
+        if not positions:
+            print("No positions held.")
+        else:
+            total_invested = 0.0
+            total_value = 0.0
+            print("Portfolio Dashboard:")
+            for ticker, pos in positions.items():
+                current_price = get_market_price(ticker)
+                avg_cost = pos['cost'] / pos['qty']
+                value = round(current_price * pos['qty'], 2)
+                profit_loss = round(value - pos['cost'], 2)
+                total_invested += pos['cost']
+                total_value += value
+                print(f"  {ticker}:")
+                print(f"    Shares: {pos['qty']}")
+                print(f"    Avg Cost: ${avg_cost:.2f}")
+                print(f"    Current Price: ${current_price}")
+                print(f"    Market Value: ${value}")
+                print(f"    Profit/Loss: ${profit_loss}")
+            overall_pl = round(total_value - total_invested, 2)
+            print(f"Overall Invested: ${round(total_invested, 2)}")
+            print(f"Current Portfolio Value: ${round(total_value, 2)}")
+            print(f"Overall Profit/Loss: ${overall_pl}")
+    elif command == 'chart':
+        if len(args) != 1:
+            print("Usage: chart <ticker>")
+        else:
+            ticker = args[0].upper()
+            show_chart(ticker)
+    elif command == 'popular':
+        show_popular_pairs(positions)
+    elif command == 'favourite':
+        if len(args) != 1:
+            print("Usage: favourite <ticker>")
+        else:
+            add_favourite(args[0])
+    elif command == 'removefav':
+        remove_favourite()
+    elif command == 'favourites':
+        show_favourites()
+    elif command == 'screener':
+        show_screener()
+    elif command == 'gainers':
+        show_gainers_losers()
+    elif command == 'lasttrade':
+        show_last_trade_time()
+    elif command in ['clear', 'cls']:
+        clear_screen()
+    elif command == 'exit':
+        print("Exiting TradeCLI. Goodbye!")
+        return False
     else:
-      ticker = args[0].upper()
-      price = get_market_price(ticker)
-      print(f"Quote for {ticker}: ${price}")
+        print("Unknown command. Type 'help' for available commands.")
+    return True
 
-  elif command == 'buy':
-    if len(args) != 2:
-      print("Usage: buy <ticker> <qty>")
-    else:
-      ticker = args[0].upper()
-      try:
-        qty = int(args[1])
-        if qty <= 0:
-          raise ValueError
-      except ValueError:
-        print("Quantity must be a positive integer.")
-        return True
-      price = get_market_price(ticker)
-      total_cost = round(price * qty, 2)
-      if ticker in positions:
-        positions[ticker]['qty'] += qty
-        positions[ticker]['cost'] += total_cost
-      else:
-        positions[ticker] = {"qty": qty, "cost": total_cost}
-      print(f"Bought {qty} shares of {ticker} at ${price}/share for ${total_cost}.")
 
-  elif command == 'sell':
-    if len(args) != 2:
-      print("Usage: sell <ticker> <qty>")
-    else:
-      ticker = args[0].upper()
-      try:
-        qty = int(args[1])
-        if qty <= 0:
-          raise ValueError
-      except ValueError:
-        print("Quantity must be a positive integer.")
-        return True
-      if ticker not in positions or positions[ticker]['qty'] < qty:
-        print("Insufficient shares to sell.")
-      else:
-        price = get_market_price(ticker)
-        total_value = round(price * qty, 2)
-        avg_cost = positions[ticker]['cost'] / positions[ticker]['qty']
-        positions[ticker]['qty'] -= qty
-        positions[ticker]['cost'] -= avg_cost * qty
-        if positions[ticker]['qty'] == 0:
-          del positions[ticker]
-        print(f"Sold {qty} shares of {ticker} at ${price}/share for ${total_value}.")
-
-  elif command == 'positions':
-    if not positions:
-      print("No positions held.")
-    else:
-      print("Current Positions:")
-      total_unrealized = 0.0
-      for ticker, pos in positions.items():
-        current_price = get_market_price(ticker)
-        avg_cost = pos['cost'] / pos['qty']
-        unrealized = round((current_price - avg_cost) * pos['qty'], 2)
-        total_unrealized += unrealized
-        print(f"  {ticker}: {pos['qty']} shares (avg cost: ${avg_cost:.2f}, current: ${current_price}) -> P/L: ${unrealized}")
-      print(f"Total Unrealized P/L: ${total_unrealized}")
-
-  elif command == 'dashboard':
-    if not positions:
-      print("No positions held.")
-    else:
-      total_invested = 0.0
-      total_value = 0.0
-      print("Portfolio Dashboard:")
-      for ticker, pos in positions.items():
-        current_price = get_market_price(ticker)
-        avg_cost = pos['cost'] / pos['qty']
-        value = round(current_price * pos['qty'], 2)
-        profit_loss = round(value - pos['cost'], 2)
-        total_invested += pos['cost']
-        total_value += value
-        print(f"  {ticker}:")
-        print(f"    Shares: {pos['qty']}")
-        print(f"    Avg Cost: ${avg_cost:.2f}")
-        print(f"    Current Price: ${current_price}")
-        print(f"    Market Value: ${value}")
-        print(f"    Profit/Loss: ${profit_loss}")
-      overall_pl = round(total_value - total_invested, 2)
-      print(f"Overall Invested: ${round(total_invested, 2)}")
-      print(f"Current Portfolio Value: ${round(total_value, 2)}")
-      print(f"Overall Profit/Loss: ${overall_pl}")
-
-  elif command == 'chart':
-    if len(args) != 1:
-      print("Usage: chart <ticker>")
-    else:
-      ticker = args[0].upper()
-      show_chart(ticker)
-
-  elif command == 'popular':
-    show_popular_pairs()
-
-  elif command == 'favourite':
-    if len(args) != 1:
-      print("Usage: favourite <ticker>")
-    else:
-      add_favourite(args[0])
-
-  elif command == 'favourites':
-    show_favourites()
-
-  elif command == 'screener':
-    show_screener()
-
-  elif command in ['clear', 'cls']:
+def main():
+    global TRADING_MODE
     clear_screen()
+    print_banner()
+    print(f"Welcome to TradeCLI!{RESET}")
+    mode_choice = input("Choose trading mode (dummy/real) [default: dummy]: ").strip().lower()
+    if mode_choice in ["real", "dummy"]:
+        TRADING_MODE = mode_choice
+    else:
+        TRADING_MODE = "dummy"
+    print(f"Trading mode set to: {TRADING_MODE}")
+    if TRADING_MODE == "real":
+        answer = input("Would you like to configure real trading credentials now? (y/n): ").strip().lower()
+        if answer == "y":
+            configure_real_trading()
+    print("Type 'help' to see available commands.")
+    positions: Dict[str, Dict] = {}
+    while True:
+        try:
+            user_input = input(f"TradeCLI> {RESET}").strip()
+            if not user_input:
+                print("\aNo command entered. Please type 'help' for available commands.")
+                continue
+            parts = user_input.split()
+            cmd = parts[0]
+            args = parts[1:]
+            if not process_command(cmd, args, positions):
+                break
+        except KeyboardInterrupt:
+            print("\nExiting TradeCLI. Goodbye!")
+            break
+        except Exception as ex:
+            print(f"An error occurred: {ex}")
 
-  elif command == 'exit':
-    print("Exiting TradeCLI. Goodbye!")
-    return False
-
-  else:
-    print("Unknown command. Type 'help' for available commands.")
-
-  return True
-
-def main() -> None:
-  """
-  Main function to run the TradeCLI.
-  """
-  clear_screen()
-  print_banner()
-  print(f"{BOLD}{GREEN}Welcome to the TradeCLI!{RESET}")
-  print("Type 'help' to see available commands.")
-
-  positions: Dict[str, Dict] = {}  # e.g., positions['AAPL'] = {"qty": 10, "cost": 1000.0}
-
-  # Command loop
-  while True:
-    try:
-      user_input = input(f"{BOLD}{GREEN}TradeCLI> {RESET}").strip()
-      if not user_input:
-        print("\aNo command entered. Please type 'help' for available commands.")
-        continue
-      parts = user_input.split()
-      cmd = parts[0]
-      args = parts[1:]
-      if not process_command(cmd, args, positions):
-        break
-    except KeyboardInterrupt:
-      print("\nExiting TradeCLI. Goodbye!")
-      break
-    except Exception as ex:
-      print(f"An error occurred: {ex}")
 
 if __name__ == "__main__":
-  main()
+    main()
