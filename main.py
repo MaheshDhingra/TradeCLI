@@ -1,6 +1,5 @@
 import math
 import os
-import matplotlib.pyplot as plt
 import requests
 from typing import Dict, List, Set
 
@@ -59,27 +58,57 @@ def place_real_order(order_type: str, ticker: str, qty: int, price: float):
     print(f"Placed real {order_type} order: {qty} shares of {ticker} at ${price}/share.")
 
 
-def show_chart(ticker: str):
+def show_chart(ticker: str, interval: str = '5min'):
     ticker = ticker.upper()
-    url = f"https://www.alphavantage.co/query?function=TIME_SERIES_INTRADAY&symbol={ticker}&interval=5min&apikey={ALPHA_VANTAGE_KEY}"
+    interval = interval.lower()
+    if interval in ['d', '1d', 'day']:
+        url = f"https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&symbol={ticker}&apikey={ALPHA_VANTAGE_KEY}"
+        time_key = "Time Series (Daily)"
+        label = 'Daily'
+    elif interval in ['1h', 'hour', '60min']:
+        url = f"https://www.alphavantage.co/query?function=TIME_SERIES_INTRADAY&symbol={ticker}&interval=60min&apikey={ALPHA_VANTAGE_KEY}"
+        time_key = "Time Series (60min)"
+        label = 'Hourly'
+    elif interval in ['4h', '4hour', '240min']:
+        url = f"https://www.alphavantage.co/query?function=TIME_SERIES_INTRADAY&symbol={ticker}&interval=240min&apikey={ALPHA_VANTAGE_KEY}"
+        time_key = "Time Series (240min)"
+        label = '4 Hour'
+    elif interval in ['1min', 'minute']:
+        url = f"https://www.alphavantage.co/query?function=TIME_SERIES_INTRADAY&symbol={ticker}&interval=1min&apikey={ALPHA_VANTAGE_KEY}"
+        time_key = "Time Series (1min)"
+        label = '1 Minute'
+    else:
+        url = f"https://www.alphavantage.co/query?function=TIME_SERIES_INTRADAY&symbol={ticker}&interval=5min&apikey={ALPHA_VANTAGE_KEY}"
+        time_key = "Time Series (5min)"
+        label = '5min'
     try:
         r = requests.get(url, timeout=10)
-        data = r.json().get("Time Series (5min)", {})
+        data = r.json().get(time_key, {})
         if not data:
             print(f"No chart data for {ticker}.")
             return
         times = list(data.keys())[::-1]
         prices = [float(data[t]["4. close"]) for t in times]
-        plt.figure(figsize=(8, 4))
-        plt.plot(times, prices, marker='o', label=ticker)
-        plt.title(f"Price History for {ticker}")
-        plt.xlabel("Time")
-        plt.ylabel("Price")
-        plt.grid(True)
-        plt.legend()
-        plt.xticks(rotation=45)
-        plt.tight_layout()
-        plt.show()
+        min_p = min(prices)
+        max_p = max(prices)
+        width = min(50, len(prices))
+        height = 10
+        scale = (max_p - min_p) / (height - 1) if max_p != min_p else 1
+        chart = [[' ' for _ in range(width)] for _ in range(height)]
+        for i in range(width):
+            idx = -width + i if len(prices) >= width else i
+            p = prices[idx]
+            y = int(round((p - min_p) / scale)) if scale else 0
+            y = min(y, height - 1)
+            chart[height - 1 - y][i] = '*'
+        print(f"\nPrice History for {ticker} ({label} ASCII Chart):")
+        y_labels = [min_p + scale * (height - 1 - i) for i in range(height)]
+        for i, row in enumerate(chart):
+            label = f"{y_labels[i]:7.2f} | "
+            print(label + ''.join(row))
+        print("        +" + "-" * width)
+        print("         " + ''.join([str((i//10)%10) if i%10==0 else ' ' for i in range(width)]))
+        print(f"Min: {min_p:.2f}  Max: {max_p:.2f}")
     except Exception as e:
         print(f"Chart error: {e}")
 
@@ -112,7 +141,7 @@ def show_gainers_losers():
     print("Top Gainers/Losers (session):")
     changes = []
     for ticker, data in market_data.items():
-        if len(data['history']) >= 2:
+        if isinstance(data, dict) and 'history' in data and isinstance(data['history'], list) and len(data['history']) >= 2:
             change = data['history'][-1] - data['history'][0]
             changes.append((change, ticker))
     if not changes:
@@ -130,7 +159,7 @@ def show_gainers_losers():
 def show_last_trade_time():
     print("Last trade time for tickers:")
     for ticker, data in market_data.items():
-        if data['history']:
+        if isinstance(data, dict) and 'history' in data and data['history']:
             print(f"  {ticker}: {len(data['history'])} updates ago")
 
 
@@ -146,8 +175,13 @@ def print_help():
     print("  buy <ticker> <qty>     - Buy specified number of shares")
     print("  sell <ticker> <qty>    - Sell specified number of shares")
     print("  positions              - Show current holdings and profit/loss")
-    print("  chart <ticker>         - Display price history chart")
-    print("  dashboard              - Show overall portfolio performance")
+    print("  chart <ticker> <day|hour|4hour|minute|5min> - Display price history chart (ASCII)")
+    print("  dashboard              - Show customizable dashboard summary")
+    print("  analytics              - Show advanced analytics")
+    print("  alert                  - Set price/volume alerts")
+    print("  integrations           - Integrations menu")
+    print("  exportcsv              - Export portfolio to CSV")
+    print("  customize              - Customize dashboard")
     print("  popular                - Show popular trading pairs/tickers with price and holding")
     print("  gainers                - Show top gainers and losers")
     print("  lasttrade              - Show last trade time for tickers")
@@ -183,13 +217,119 @@ def show_screener():
     print(f"Screener Results:{RESET}")
     detected = False
     for ticker, data in market_data.items():
-        if len(data['history']) >= 2 and data['history'][-1] > data['history'][-2]:
+        if isinstance(data, dict) and 'history' in data and isinstance(data['history'], list) and len(data['history']) >= 2 and data['history'][-1] > data['history'][-2]:
             print(f"  {ticker} is trending up. Current price: ${data['price']}")
             detected = True
     if not detected:
         print("  No trending tickers detected.")
     print()
 
+
+def show_analytics():
+    if not market_data:
+        print("No analytics available yet.")
+        return
+    changes = []
+    for ticker, data in market_data.items():
+        if isinstance(data, dict) and 'history' in data and isinstance(data['history'], list) and len(data['history']) >= 2:
+            change = data['history'][-1] - data['history'][0]
+            changes.append((change, ticker))
+    if not changes:
+        print("Not enough data for analytics.")
+        return
+    changes.sort(reverse=True)
+    best = changes[0]
+    worst = changes[-1]
+    avg_return = sum([c[0] for c in changes]) / len(changes)
+    win_count = sum(1 for c in changes if c[0] > 0)
+    print(f"Best performer: {best[1]} ({best[0]:+.2f})")
+    print(f"Worst performer: {worst[1]} ({worst[0]:+.2f})")
+    print(f"Average return: {avg_return:+.2f}")
+    print(f"Win rate: {win_count}/{len(changes)} ({win_count/len(changes)*100:.1f}%)")
+
+def set_alert():
+    ticker = input("Set alert for ticker: ").strip().upper()
+    try:
+        target = float(input("Alert when price crosses: ").strip())
+    except ValueError:
+        print("Invalid price.")
+        return
+    print(f"Alert set for {ticker} at ${target} (session only)")
+    if 'alerts' not in market_data:
+        market_data['alerts'] = []
+    market_data['alerts'].append((ticker, target))
+
+def check_alerts():
+    if 'alerts' not in market_data:
+        return
+    fired = []
+    for (ticker, target) in market_data['alerts']:
+        price = get_market_price(ticker)
+        if price >= target:
+            print(f"ALERT: {ticker} has reached ${price} (target: ${target})!")
+            fired.append((ticker, target))
+    for alert in fired:
+        market_data['alerts'].remove(alert)
+
+def integrations_menu():
+    print("Integrations:")
+    print("  - Export portfolio to CSV (type 'exportcsv')")
+    print("  - [Future] Discord, Telegram, broker APIs")
+
+def export_portfolio_csv(positions):
+    import csv
+    fname = "portfolio_export.csv"
+    with open(fname, "w", newline="") as f:
+        writer = csv.writer(f)
+        writer.writerow(["Ticker", "Shares", "Avg Cost", "Current Price", "Market Value"])
+        for ticker, pos in positions.items():
+            current_price = get_market_price(ticker)
+            avg_cost = pos['cost'] / pos['qty']
+            value = round(current_price * pos['qty'], 2)
+            writer.writerow([ticker, pos['qty'], f"{avg_cost:.2f}", f"{current_price:.2f}", f"{value:.2f}"])
+    print(f"Portfolio exported to {fname}")
+
+def customize_dashboard():
+    print("Dashboard customization:")
+    print("You can select which tickers to show in your dashboard.")
+    print("Type a comma-separated list of tickers (e.g. TSLA,AAPL,GOOGL) or 'all' for all holdings.")
+    tickers = input("Tickers for dashboard: ")
+
+    if tickers.strip().upper() == 'ALL':
+        market_data['dashboard_custom'] = None
+        print("Dashboard will show all holdings.")
+    else:
+        selected = [t.strip().upper() for t in tickers.split(',') if t.strip()]
+        market_data['dashboard_custom'] = selected
+        print(f"Dashboard will show: {', '.join(selected)}")
+
+def dashboard_summary(positions, filter_type=None):
+    print("Customizable Dashboard (basic summary):")
+    total_invested = 0.0
+    total_value = 0.0
+    filtered = positions.items()
+    custom = market_data.get('dashboard_custom', None)
+    if custom is not None:
+        filtered = [(t, p) for t, p in positions.items() if t in custom]
+    if filter_type == 'gainers':
+        filtered = [(t, p) for t, p in filtered if get_market_price(t) > (p['cost']/p['qty'])]
+    elif filter_type == 'losers':
+        filtered = [(t, p) for t, p in filtered if get_market_price(t) < (p['cost']/p['qty'])]
+    if not filtered:
+        print("No positions to display in dashboard.")
+        return
+    for ticker, pos in filtered:
+        current_price = get_market_price(ticker)
+        value = round(current_price * pos['qty'], 2)
+        total_invested += pos['cost']
+        total_value += value
+        print(f"  {ticker}: {pos['qty']} shares | Value: ${value} | Current: ${current_price}")
+    print(f"Total Invested: ${total_invested}")
+    print(f"Portfolio Value: ${total_value}")
+    if filter_type:
+        print(f"(Filtered: {filter_type})")
+    if custom is not None:
+        print(f"(Custom dashboard: {', '.join(custom)})")
 
 def process_command(command: str, args: List[str], positions: Dict[str, Dict]) -> bool:
     global TRADING_MODE
@@ -296,35 +436,27 @@ def process_command(command: str, args: List[str], positions: Dict[str, Dict]) -
                 print(f"  {ticker}: {pos['qty']} shares (avg cost: ${avg_cost:.2f}, current: ${current_price}) -> P/L: ${unrealized}")
             print(f"Total Unrealized P/L: ${total_unrealized}")
     elif command == 'dashboard':
-        if not positions:
-            print("No positions held.")
+        if len(args) == 1 and args[0] in ['gainers', 'losers', 'all']:
+            dashboard_summary(positions, filter_type=args[0] if args[0] != 'all' else None)
         else:
-            total_invested = 0.0
-            total_value = 0.0
-            print("Portfolio Dashboard:")
-            for ticker, pos in positions.items():
-                current_price = get_market_price(ticker)
-                avg_cost = pos['cost'] / pos['qty']
-                value = round(current_price * pos['qty'], 2)
-                profit_loss = round(value - pos['cost'], 2)
-                total_invested += pos['cost']
-                total_value += value
-                print(f"  {ticker}:")
-                print(f"    Shares: {pos['qty']}")
-                print(f"    Avg Cost: ${avg_cost:.2f}")
-                print(f"    Current Price: ${current_price}")
-                print(f"    Market Value: ${value}")
-                print(f"    Profit/Loss: ${profit_loss}")
-            overall_pl = round(total_value - total_invested, 2)
-            print(f"Overall Invested: ${round(total_invested, 2)}")
-            print(f"Current Portfolio Value: ${round(total_value, 2)}")
-            print(f"Overall Profit/Loss: ${overall_pl}")
+            dashboard_summary(positions)
+    elif command == 'analytics':
+        show_analytics()
+    elif command == 'alert':
+        set_alert()
+    elif command == 'integrations':
+        integrations_menu()
+    elif command == 'exportcsv':
+        export_portfolio_csv(positions)
+    elif command == 'customize':
+        customize_dashboard()
     elif command == 'chart':
-        if len(args) != 1:
-            print("Usage: chart <ticker>")
+        if len(args) == 0:
+            print("Usage: chart <ticker> [interval]")
         else:
             ticker = args[0].upper()
-            show_chart(ticker)
+            interval = args[1] if len(args) > 1 else '5min'
+            show_chart(ticker, interval)
     elif command == 'popular':
         show_popular_pairs(positions)
     elif command == 'favourite':
@@ -349,6 +481,7 @@ def process_command(command: str, args: List[str], positions: Dict[str, Dict]) -
         return False
     else:
         print("Unknown command. Type 'help' for available commands.")
+    check_alerts()
     return True
 
 

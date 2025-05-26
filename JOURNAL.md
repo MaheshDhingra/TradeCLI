@@ -24,3 +24,12 @@ Yea, finally got an idea which is not pulled in the official repo for now!!
 -- buy and sell 
 -- new commands
 -- everything synced together
+
+[Day 5, Chart in terminal]
+-- advance tools and commands
+-- fixed chart in terminal (no more gui from now)
+-- opened discussions so people can test and review
+
+
+
+**TOTAL TIME SPENT IN THIS PROJECT: 15 HOUR'S**

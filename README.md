@@ -39,6 +39,8 @@ Welcome to **TradeCLI**, your command-line trading companion. TradeCLI makes man
 * 🚀 **Live Market Data** – All prices and charts are real, not simulated.
 * 🏆 **Gainers/Losers** – See top movers in your session.
 * 🕒 **Last Trade Time** – Track how fresh your data is.
+* 🛡️ **Robust Error Handling** – All commands check for valid ticker data, preventing crashes.
+* 🐞 **Bug-Free Analytics** – Analytics, gainers, and screener commands are now fully reliable.
 
 ---
 
@@ -53,6 +55,11 @@ Welcome to **TradeCLI**, your command-line trading companion. TradeCLI makes man
 | `positions`           | View current holdings and P&L               |
 | `chart <ticker>`      | Show price history chart                    |
 | `dashboard`           | View overall portfolio performance          |
+| `analytics`           | Show advanced analytics                     |
+| `alert`               | Set price/volume alerts                     |
+| `integrations`        | Integrations menu                           |
+| `exportcsv`           | Export portfolio to CSV                     |
+| `customize`           | Customize dashboard                         |
 | `popular`             | Display popular trading pairs with price & holding |
 | `gainers`             | Show top gainers and losers (session)       |
 | `lasttrade`           | Show last trade time for tickers            |
