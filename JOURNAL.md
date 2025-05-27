@@ -30,6 +30,9 @@ Yea, finally got an idea which is not pulled in the official repo for now!!
 -- fixed chart in terminal (no more gui from now)
 -- opened discussions so people can test and review
 
+[Day 6, AI]
+-- Integrated Hack Club AI
 
 
-**TOTAL TIME SPENT IN THIS PROJECT: 15 HOUR'S**
+
+**TOTAL TIME SPENT IN THIS PROJECT: 16 HOUR'S**

@@ -41,6 +41,7 @@ Welcome to **TradeCLI**, your command-line trading companion. TradeCLI makes man
 * 🕒 **Last Trade Time** – Track how fresh your data is.
 * 🛡️ **Robust Error Handling** – All commands check for valid ticker data, preventing crashes.
 * 🐞 **Bug-Free Analytics** – Analytics, gainers, and screener commands are now fully reliable.
+* 🤖 **Hack Club AI Integration** – Ask questions or get help from AI right in your terminal.
 
 ---
 
@@ -67,6 +68,7 @@ Welcome to **TradeCLI**, your command-line trading companion. TradeCLI makes man
 | `removefav`           | Remove ticker from favourites               |
 | `favourites`          | List all favourite tickers                  |
 | `screener`            | Run the market screener                     |
+| `ai <prompt>`          | Ask Hack Club AI any question                |
 | `clear` / `cls`       | Clear the terminal screen                   |
 | `exit`                | Exit TradeCLI                               |
 

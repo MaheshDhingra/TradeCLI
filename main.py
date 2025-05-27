@@ -1,6 +1,7 @@
 import math
 import os
 import requests
+import json
 from typing import Dict, List, Set
 
 TRADING_MODE = "dummy"
@@ -191,6 +192,7 @@ def print_help():
     print("  screener               - Run the price screener")
     print("  setmode <dummy|real>   - Set trading mode")
     print("  config                 - Configure credentials for real trading mode")
+    print("  ai <prompt>              - Ask Hack Club AI any question")
     print("  clear / cls            - Clear the terminal screen")
     print("  exit                   - Exit the terminal")
 
@@ -330,6 +332,27 @@ def dashboard_summary(positions, filter_type=None):
         print(f"(Filtered: {filter_type})")
     if custom is not None:
         print(f"(Custom dashboard: {', '.join(custom)})")
+
+def ask_hackclub_ai(prompt: str):
+    url = "https://ai.hackclub.com/chat/completions"
+    headers = {"Content-Type": "application/json"}
+    data = {
+        "messages": [
+            {"role": "user", "content": prompt}
+        ]
+    }
+    try:
+        resp = requests.post(url, headers=headers, data=json.dumps(data), timeout=20)
+        if resp.status_code == 200:
+            result = resp.json()
+            if "choices" in result and result["choices"]:
+                print("AI:", result["choices"][0]["message"]["content"])
+            else:
+                print("AI: No response received.")
+        else:
+            print(f"AI error: {resp.status_code} {resp.text}")
+    except Exception as e:
+        print(f"AI request failed: {e}")
 
 def process_command(command: str, args: List[str], positions: Dict[str, Dict]) -> bool:
     global TRADING_MODE
@@ -479,6 +502,12 @@ def process_command(command: str, args: List[str], positions: Dict[str, Dict]) -
     elif command == 'exit':
         print("Exiting TradeCLI. Goodbye!")
         return False
+    elif command == 'ai':
+        if not args:
+            print("Usage: ai <prompt>")
+        else:
+            prompt = ' '.join(args)
+            ask_hackclub_ai(prompt)
     else:
         print("Unknown command. Type 'help' for available commands.")
     check_alerts()
