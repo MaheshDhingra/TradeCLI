@@ -1,4 +1,4 @@
-# 🤙 TerminalCraft: TradeCLI
+# 🤙 TradeCLI
 
 <p align="center">
    <a href="https://github.com/MaheshDhingra/TradeCLI/stargazers">
